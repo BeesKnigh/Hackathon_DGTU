@@ -9,10 +9,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Глобальная переменная для модели
 assistant_model = None
 
-# Загрузка модели при старте сервера
 @app.on_event("startup")
 async def startup_event():
     global assistant_model

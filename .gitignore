@@ -5,3 +5,4 @@ dataset_download.py
 pavlov/
 __pycache__/
 .DS_Store
+forbidden_words.txt
