@@ -41,7 +41,7 @@ class AssistantModel:
         scores = torch.softmax(outputs.logits, dim=1)
         toxic_score = scores[0][1].item()
         
-        return toxic_score < 0.5
+        return toxic_score < 0.7
 
     def generate_response(self, prompt):
         """Генерирует ответ на основе входного промпта и предустановленного префикса."""

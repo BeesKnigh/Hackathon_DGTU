@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from model import AssistantModel
+from request_queue import RequestQueue
 import logging
+import uuid
 
 app = FastAPI(
     title="Student Assistant API",
@@ -9,31 +10,39 @@ app = FastAPI(
     version="1.0.0"
 )
 
-assistant_model = None
-
-@app.on_event("startup")
-async def startup_event():
-    global assistant_model
-    logging.info("Запуск и загрузка модели ассистента...")
-    try:
-        assistant_model = AssistantModel()
-        logging.info("Модель успешно загружена.")
-    except Exception as e:
-        logging.error(f"Ошибка при загрузке модели: {e}")
+# Инициализация очереди запросов
+queue = RequestQueue()
 
 class Query(BaseModel):
     prompt: str
 
-@app.post("/generate_response", summary="Генерация ответа ассистента", description="Возвращает ответ на основе входного вопроса.")
-async def generate_response(query: Query):
-    if assistant_model is None:
-        raise HTTPException(status_code=503, detail="Модель не загружена. Попробуйте позже.")
+@app.post("/submit_request", summary="Добавление запроса в очередь", description="Добавляет запрос в очередь для дальнейшей обработки.")
+async def submit_request(query: Query):
     try:
-        response = assistant_model.generate_response(query.prompt)
-        return {"response": response}
+        request_id = str(uuid.uuid4())
+        
+        queue.add_request_to_queue(request_id, query.prompt)
+        
+        return {"request_id": request_id, "message": "Ваш запрос был добавлен в очередь и будет обработан."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/get_response/{request_id}", summary="Получение ответа на запрос", description="Получает ответ на запрос по request_id.")
+async def get_response(request_id: str):
+    try:
+        response = queue.get_response(request_id)
+        
+        if response is None:
+            return {"status": "ожидание", "message": "Ваш запрос все еще обрабатывается. Пожалуйста, попробуйте позже."}
+        
+        return {"status": "готов", "response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", summary="Главная страница API")
 async def root():
     return {"message": "Добро пожаловать в Student Assistant API"}
+
+@app.get("/queue_length", summary="Длина очереди", description="Возвращает текущую длину очереди запросов.")
+async def queue_length():
+    return {"queue_length": queue.get_queue_length()}
